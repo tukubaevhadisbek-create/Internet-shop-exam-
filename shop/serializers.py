@@ -15,7 +15,9 @@ class CategorySerializer(serializers.ModelSerializer):
 
 
 class ProductSerializer(serializers.ModelSerializer):
-    category_name = serializers.ReadOnlyField(source='category.name')
+    category_name = serializers.ReadOnlyField(
+        source='category.name'
+    )
 
     class Meta:
         model = Product
@@ -23,12 +25,17 @@ class ProductSerializer(serializers.ModelSerializer):
 
 
 class ReviewSerializer(serializers.ModelSerializer):
-    user = serializers.ReadOnlyField(source='user.username')
+    user = serializers.ReadOnlyField(
+        source='user.username'
+    )
 
     class Meta:
         model = Review
         fields = '__all__'
-        read_only_fields = ['user', 'created_at']
+        read_only_fields = [
+            'user',
+            'created_at'
+        ]
 
     def validate(self, data):
         request = self.context.get('request')
@@ -36,6 +43,7 @@ class ReviewSerializer(serializers.ModelSerializer):
 
         if (
             request
+            and request.user.is_authenticated
             and not self.instance
             and Review.objects.filter(
                 user=request.user,
@@ -50,7 +58,13 @@ class ReviewSerializer(serializers.ModelSerializer):
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
-    product_title = serializers.ReadOnlyField(source='product.title')
+    product_title = serializers.ReadOnlyField(
+        source='product.title'
+    )
+
+    quantity = serializers.IntegerField(
+        min_value=1
+    )
 
     class Meta:
         model = OrderItem
@@ -61,15 +75,26 @@ class OrderItemSerializer(serializers.ModelSerializer):
             'quantity',
             'price'
         ]
-        read_only_fields = ['price']
+
+        read_only_fields = [
+            'id',
+            'product_title',
+            'price'
+        ]
 
 
 class OrderSerializer(serializers.ModelSerializer):
-    items = OrderItemSerializer(many=True)
-    user = serializers.ReadOnlyField(source='user.username')
+    items = OrderItemSerializer(
+        many=True
+    )
+
+    user = serializers.ReadOnlyField(
+        source='user.username'
+    )
 
     class Meta:
         model = Order
+
         fields = [
             'id',
             'user',
@@ -79,7 +104,9 @@ class OrderSerializer(serializers.ModelSerializer):
             'created_at',
             'items'
         ]
+
         read_only_fields = [
+            'id',
             'user',
             'status',
             'total_price',
@@ -98,7 +125,13 @@ class OrderSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         items_data = validated_data.pop('items')
 
-        order = Order.objects.create(**validated_data)
+        # user уже находится в validated_data,
+        # если во views.py используется:
+        # serializer.save(user=self.request.user)
+
+        order = Order.objects.create(
+            **validated_data
+        )
 
         total = 0
 
@@ -113,7 +146,8 @@ class OrderSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     {
                         'items': (
-                            f'Недостаточно товара "{product.title}". '
+                            f'Недостаточно товара '
+                            f'"{product.title}". '
                             f'На складе: {product.stock}'
                         )
                     }
@@ -129,19 +163,23 @@ class OrderSerializer(serializers.ModelSerializer):
             )
 
             product.stock -= quantity
-            product.save(update_fields=['stock'])
+
+            product.save(
+                update_fields=['stock']
+            )
 
             total += price * quantity
 
         order.total_price = total
-        order.save(update_fields=['total_price'])
+
+        order.save(
+            update_fields=['total_price']
+        )
 
         return order
 
 
 class Register(serializers.ModelSerializer):
-    username = serializers.CharField(max_length=150)
-    email = serializers.EmailField()
     password = serializers.CharField(
         write_only=True,
         min_length=8
@@ -149,6 +187,7 @@ class Register(serializers.ModelSerializer):
 
     class Meta:
         model = User
+
         fields = [
             'username',
             'email',
@@ -164,8 +203,13 @@ class Register(serializers.ModelSerializer):
 
 
 class LoginSerialiser(serializers.Serializer):
-    username = serializers.CharField(max_length=150)
-    password = serializers.CharField(write_only=True)
+    username = serializers.CharField(
+        max_length=150
+    )
+
+    password = serializers.CharField(
+        write_only=True
+    )
 
     def validate(self, data):
         user = authenticate(
