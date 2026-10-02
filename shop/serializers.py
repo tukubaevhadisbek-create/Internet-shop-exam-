@@ -125,10 +125,6 @@ class OrderSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         items_data = validated_data.pop('items')
 
-        # user уже находится в validated_data,
-        # если во views.py используется:
-        # serializer.save(user=self.request.user)
-
         order = Order.objects.create(
             **validated_data
         )
